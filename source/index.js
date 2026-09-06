@@ -237,6 +237,57 @@ const applyStyle = (self, string) => {
 Object.defineProperties(createChalk.prototype, {...styles, level: levelDescriptor});
 
 const chalk = createChalk();
+chalk.theme = function (theme) {
+	const themeProto = Object.create(createChalk.prototype);
+
+	for (const [name, value] of Object.entries(theme)) {
+		if (typeof value !== 'string') {
+			throw new TypeError('Theme value must be a string');
+		}
+
+		const tokens = value.trim().split(/\s+/v);
+		let openAll = '';
+		let closeAll = '';
+
+		for (const token of tokens) {
+			const style = ansiStyles[token];
+			if (!style) {
+				throw new Error(`Unknown style: ${token}`);
+			}
+
+			openAll += style.open;
+			closeAll = style.close + closeAll;
+		}
+
+		Object.defineProperty(themeProto, name, {
+			get() {
+				const styler = {
+					openAll,
+					closeAll,
+					open: '',
+					close: '',
+					parent: undefined,
+				};
+				const builder = createBuilder(this, styler, false);
+				Object.defineProperty(this, name, {
+					value: builder,
+				});
+				return builder;
+			},
+			configurable: true,
+		});
+	}
+
+	function ThemeChalk(...strings) {
+		return strings.join(' ');
+	}
+
+	applyOptions(ThemeChalk, {level: this.level});
+	Object.setPrototypeOf(ThemeChalk, themeProto);
+
+	return ThemeChalk;
+};
+
 export const chalkStderr = createChalk({level: stderrColor ? stderrColor.level : 0});
 
 export {
